@@ -109,25 +109,13 @@ int cSunMiscSignal_open() {
 		  cSunMiscSignal_table[i] = 0;
 		  i += 1;
 	    }
-		/* Get a process-specific name for the semaphore. */
-		char cSunMiscSignal_semaphoreName[NAME_MAX];
-		const char* const nameFormat = "/cSunMiscSignal-%d";
-		int const pid = getpid();
-		int const snprintfResult = snprintf(cSunMiscSignal_semaphoreName, NAME_MAX, nameFormat, pid);
-		if ((snprintfResult <= 0) || (snprintfResult >= NAME_MAX))  {
-			return -1;
-		}
 		/* Initialize the semaphore. */
-		int const oflag = O_CREAT;
-		int const mode = (S_IRUSR | S_IWUSR);
-		cSunMiscSignal_semaphore = sem_open(cSunMiscSignal_semaphoreName, oflag, mode, 0);
-		if (cSunMiscSignal_semaphore == SEM_FAILED) {
+		cSunMiscSignal_semaphore = malloc(sizeof(sem_t));
+		if (! cSunMiscSignal_semaphore) {
 			return -1;
 		}
-		/* Unlink the semaphore so it can be destroyed when it is closed. */
-		int const unlinkResult = sem_unlink(cSunMiscSignal_semaphoreName);
-		if (unlinkResult != 0) {
-			return unlinkResult;
+		if (sem_init(cSunMiscSignal_semaphore, 0, 0) == -1) {
+			return -1;
 		}
 		return 0;
 	}
@@ -138,10 +126,11 @@ int cSunMiscSignal_open() {
 /* Close the C signal handler mechanism. */
 int cSunMiscSignal_close() {
 	if (haveSemaphore()) {
-		int const semCloseResult = sem_close(cSunMiscSignal_semaphore);
+		int const semCloseResult = sem_destroy(cSunMiscSignal_semaphore);
 		if (semCloseResult != 0) {
 			return semCloseResult;
 		}
+		free(cSunMiscSignal_semaphore);
 		cSunMiscSignal_semaphore = NULL;
 	}
 
